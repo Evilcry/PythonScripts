@@ -22,7 +22,7 @@
 # OLEScanner is inspired by OfficeMalScanner, here just a python (2.6) script
 # that can be used also on Linux
 
-#CHANGE LOG
+# CHANGE LOG
 #
 # 18/08/2010 - Started ver. 1.1
 # 18/08/2010 - Added dumpDecodedOle()
@@ -30,20 +30,24 @@
 # 18/08/2010 - docx/pptx/xlsx Deflater
 # 21/08/2010 - MD5 and SHA-1 hash signature
 # 03/08/2010 - Directory Scan
-
+# 26/11/2010 - DB Support for Single File
+# 27/11/2010 - Directory Scanner DB
+# 28/11/2010 - Progress Bar
+#
 # Next Version
 #
 # Ole Dumper
 # PE Dumper
-# scan deflatersure docx/pptx/xlsx
 # search for MACRO and VBMACROS
 # dump blocks of shellcode
 # dump blocks of api suspect
 
 # Working On
-#
-# SQLite Integration
 # OleFileIO_PL Integration
+# CVE Detector
+# DONE:
+# SQLite Integration
+
 
 __author__ = 'Giuseppe (Evilcry) Bonfa / http://www.evilcodecave.blogspot.com'
 __version__ = '1.2'
@@ -55,11 +59,20 @@ import array, math
 import hashlib
 import zipfile
 import re
+import time
+import pefile
 
-import sqlite3
-
+from struct import unpack
 from itertools import izip, cycle
 from optparse import OptionParser
+
+try:
+    import sqlite3
+    from pbar import progressBar
+    import OleFileIO_PL
+except ImportError:
+    print(ImportError)
+    sys.exit(-1)
 
 #Start Global Vars
 
@@ -92,10 +105,10 @@ def main():
         if os.path.isdir(args[0]) is True:
             if directory_scanner(args[0]) is True:
                 print("Directory Scan Completed Please Look at DirScan.txt\n")
-                pass
+                sys.exit(1)
             else:
                 print("Unable to complete Directory Scanning")
-                pass
+                sys.exit(-1)
 
         elif os.path.isfile(args[0]) is True:
             fileName = args[0]
@@ -131,9 +144,7 @@ def main():
           print("[+] Hash Informations\n")
           hashlist = obtain_hashes(mappedOle)
 
-          #print("[+] Specific FileFormat Informations\n")
-          #fileFormat_scanner(fileName, mappedOle)
-
+          
           print("[+] Scanning for Embedded OLE in Clean\n")
 
           if embd_ole_scan(mappedOle) is True:
@@ -178,32 +189,32 @@ def main():
                   malicious_index = True
           
           # Database Update
-          
-          update_DB('ole2.sqlite', hashlist, os.path.getsize(args[0]), malicious_index) # Default DB Name assumed ole2.sqlite
-          
-          #print("[+] FileFormat Vulnerability Scanner\n")
-          #scan_for_known_vulnerabilities(fileName, mappedOle)
-
-          print("[+] Starting XOR Attack..\n")
-
-          xor_bruteforcer(mappedOle)
-
+                 
+          if malicious_index == True:
+              update_DB('ole2.sqlite', hashlist, os.path.getsize(args[0]), malicious_index) # Default DB Name assumed ole2.sqlite
+              return
+          else:
+              print("[+] Starting XOR Attack..\n")
+              malicious_index = xor_bruteforcer(mappedOle)
+              update_DB('ole2.sqlite', hashlist, os.path.getsize(args[0]), malicious_index)              
+              return
     return
 
 # ##############################################################################
 
 def directory_scanner(dirToScan):
     Completed = False
+    malicious_index = False
     
     if os.name == 'nt':
         dirToScan = dirToScan + "\\"
     else:
-        dirToScan = dirToScan + "\\"
+        dirToScan = dirToScan + "/"
 
     fdirScan = open("DirScan.txt",'w')
     fdirScan.write("OLE2 Directory Scan\n")
     fdirScan.write("=============================================\n")
-    fdirScan.write("Scanned Directory: {0}".format(dirToScan))
+    fdirScan.write("Scanned Directory: {0} \n".format(dirToScan))
 
     dirList = os.listdir(dirToScan)
 
@@ -234,7 +245,7 @@ def directory_scanner(dirToScan):
             continue
         else:
           fdirScan.write("=> {0}".format(fileName))
-          fdirScan.write("[-] OLE File Seems Valid\n")
+          fdirScan.write("\n[-] OLE File Seems Valid\n")
           try:
               f = open(pathFile,'rb')
               mappedOle = f.read()
@@ -248,12 +259,10 @@ def directory_scanner(dirToScan):
           fdirScan.write("[+] Hash Informations\n")
           fdirScan.write("{0}\n".format(hashlib.md5(mappedOle).hexdigest()))
           fdirScan.write("{0}\n".format(hashlib.sha1(mappedOle).hexdigest()))
+          hashlist = list()
+          hashlist.append(hashlib.md5(mappedOle).hexdigest())
+          hashlist.append(hashlib.sha1(mappedOle).hexdigest())
           #END Hash Calc 'n Dump
-
-          #START Specific FileFormat Infos - UNIMPLEMENTED
-          fdirScan.write("[+] Specific FileFormat Informations\n")
-         # fileFormat_scanner(fileName, mappedOle)
-          #END Specific FileFormat Infos - UNIMPLEMENTED
 
           #START Scanning for Embedded OLE
           fdirScan.write("[+] Scanning for Embedded OLE in Clean\n")
@@ -265,7 +274,7 @@ def directory_scanner(dirToScan):
           #END Scanning for Embedded OLE
 
           #START Scanning for API presence
-          print("[+] Scanning for API presence in Clean\n")
+          print("\n[+] Scanning for API presence in Clean\n")
           apiScan = known_api_revealer(mappedOle)
 
           if len(apiScan) == 0:
@@ -274,6 +283,7 @@ def directory_scanner(dirToScan):
               fdirScan.write("\n".join(apiScan))
               fdirScan.write("\n==========================================\n")
               fdirScan.write("Warning File is Potentially INFECTED!!!!\n")
+              malicious_index = True
           #END Scanning for API presence
 
           #START Scanning for Embedded Executables
@@ -287,6 +297,7 @@ def directory_scanner(dirToScan):
               fdirScan.write("Embedded Executable discovered at offset : {0} \n".format(hex(peInClean)))
               fdirScan.write("\n==========================================\n")
               fdirScan.write("Warning File is INFECTED!!!!\n")
+              malicious_index = True
           #END Scanning for Embedded Executables
 
           #START Scanning for Shellcode
@@ -300,26 +311,47 @@ def directory_scanner(dirToScan):
               fdirScan.write("\n".join(shellcode_presence))
               fdirScan.write("\n==========================================\n")
               fdirScan.write("Warning File is Potentially INFECTED!!!!\n")
+              malicious_index = True
           #END Scanning for Shellcode
+          
+          if malicious_index == True:
+              update_DB('ole2.sqlite', hashlist, os.path.getsize(pathFile), malicious_index) # Default DB Name assumed ole2.sqlite
 
+              fdirScan.write("[+] Scanning for Embedded OLE - XOR Case\n")
+              if startPEOffset != 0:
+                  if embd_ole_scan(bruted) is True:
+                      fdirScan.write("Embedded OLE Detected \n")
+              fdirScan.write("\n########################################################\n")
 
+              continue
+          
           #START XOR Attack
+          progBar = progressBar(0,256,50)
           fdirScan.write("[+] Starting XOR Attack..\n")
           for i in range (256):
+            progBar.updateAmount(i)
+            print progBar, "\r",
+            time.sleep(.05)
             bruted = xor_decrypt_data(mappedOle, i)
             startPEOffset = embd_PE_File(bruted)
             if startPEOffset != 0:
-                 fdirScan.write("Discovered Embedded Executable matching with XOR Key: ".format(hex(i)))
+                 fdirScan.write("\nDiscovered Embedded Executable matching with XOR Key: {0}".format(hex(i)))
                  fdirScan.write("\n==========================================\n")
                  fdirScan.write("Warning File is Potentially INFECTED!!!!\n")
                  fdirScan.write("Dumping Decoded File..\n")
-
+                 malicious_index = True
                  if dumpDecodedOle(bruted) is True:
-                     print("Done!")
+                     print("\nDone!")
                  else:
                      print("Error Occurred")
                      continue
-         #END XOR Attack
+          #END XOR Attack
+          
+          #START UpdateDB 
+          
+          update_DB('ole2.sqlite', hashlist, os.path.getsize(pathFile), malicious_index) # Default DB Name assumed ole2.sqlite
+
+          #End UpdateDB 
 
           fdirScan.write("[+] Scanning for Embedded OLE - XOR Case\n")
           if startPEOffset != 0:
@@ -353,7 +385,7 @@ def known_api_revealer(mappedOle):
     if match is not None:
         apiOffset.append("Revealed presence of WinExec at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'GetSystemDirectoryA',mappedOle)
+    match = re.search(b'GetSystemDirectory',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of GetSystemDirectoryA at offset:{0}".format(hex(match.start())))
 
@@ -370,6 +402,34 @@ def known_api_revealer(mappedOle):
         apiOffset.append("Revealed presence of GetWindowsDirectory at offset:{0}".format(hex(match.start())))
 
     match = re.search(b'UrlDownloadToFile',mappedOle)
+    if match is not None:
+        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'GetTempPath',mappedOle)
+    if match is not None:
+        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'IsBadReadPtr',mappedOle)
+    if match is not None:
+        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'IsBadWritePtr',mappedOle)
+    if match is not None:
+        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'CloseHandle',mappedOle)
+    if match is not None:
+        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'ReadFile',mappedOle)
+    if match is not None:
+        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'SetFilePointer',mappedOle)
+    if match is not None:
+        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'VirtualAlloc',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
 
@@ -435,19 +495,27 @@ def shellcode_scanner(mappedOle):
     if match is not None:
         shellcode_presence.append("FS:[00] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\xa1\x30',mappedOle)
+    match = re.search(b'\x64\xa1\x30\x00\x00',mappedOle) #
+    if match is not None:
+        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\x64\x8b\x1d\x30\x00',mappedOle) #
+    if match is not None:
+        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\x64\x8b\x0d\x30\x00',mappedOle) #
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x15\x30',mappedOle)
+    match = re.search(b'\x64\x8b\x15\x30\x00',mappedOle) #
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x35\x30',mappedOle)
+    match = re.search(b'\x64\x8b\x35\x30',mappedOle) #
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x3d\x30',mappedOle)
+    match = re.search(b'\x64\x8b\x3d\x30',mappedOle) #
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
@@ -465,8 +533,65 @@ def shellcode_scanner(mappedOle):
 
     match = re.search(b'\x55\x8b\xec\xe9',mappedOle)
     if match is not None:
-
         shellcode_presence.append("Call Prolog at offset:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\x90\x90\x90\x90',mappedOle)
+    if match is not None:
+        shellcode_presence.append("NOP Slide:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xd9\xee\xd9\x74\x24\xf4',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xe8\x00\x00\x00\x00\x58',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xe8\x00\x00\x00\x00\x59',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xe8\x00\x00\x00\x00\x5a',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
+    
+     match = re.search(b'\xe8\x00\x00\x00\x00\x5b',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start()))) 
+        
+    match = re.search(b'\xe8\x00\x00\x00\x00\x5e',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xe8\x00\x00\x00\x00\x5f',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xe8\x00\x00\x00\x00\x5d',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xd9\xee\xd9\x74\x24\xf4',mappedOle)
+    if match is not None:
+        shellcode_presence.append("Fldz Signature:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xac\xd0\xc0\xaa',mappedOle)
+    if match is not None:
+        shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xac\xd0\xc8\xaa',mappedOle)
+    if match is not None:
+        shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xac\xc0\xc0\xaa',mappedOle)
+    if match is not None:
+        shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
+        
+    match = re.search(b'\xac\xc0\xc8\xaa',mappedOle)
+    if match is not None:
+        shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
+        
+    #TODO: add other 'decryption' shellcodes
 
     return shellcode_presence
 
@@ -486,6 +611,7 @@ def embd_PE_File(mappedOle):
 
             match = re.search(b'This program ',mappedOle)
             if match is not None:
+                dump_PE_file(mappedOle,startPEOffset)
                 return startPEOffset
             else:
                 return 0
@@ -493,6 +619,17 @@ def embd_PE_File(mappedOle):
             return 0
 
     return 0
+    
+def dump_PE_file(mappedOle, startMZ):
+    execToCarve = mappedOle[startMZ:]
+    
+    var_1 = execToCarve[0x38+0x54:4]
+    print(var_1)
+    var_2 = execToCarve[0x3C+0x18:4] + execToCarve[0x3C+0x14:2]
+    print(var_2)    
+    
+    return True
+    
 
 def obtain_hashes(mappedOle): #on time hash calc -> list()
     hashlist = list()
@@ -570,7 +707,7 @@ def update_DB(databaseName, hashes, fileSize, bw_index):
         else:
             malicious_index = "Yes"
         
-        md5 = hashes[0]  # PRIMARY KEY
+        md5 = hashes[0]  # PRIMARY KEY (successively dropped)
         sha1 = hashes[1] # PRIMARY KEY
         
         connect = sqlite3.connect(databaseName)
