@@ -35,13 +35,18 @@
 #
 # Ole Dumper
 # PE Dumper
-# scan deflated docx/pptx/xlsx
+# scan deflatersure docx/pptx/xlsx
 # search for MACRO and VBMACROS
 # dump blocks of shellcode
 # dump blocks of api suspect
 
+# Working On
+#
+# SQLite Integration
+# OleFileIO_PL Integration
+
 __author__ = 'Giuseppe (Evilcry) Bonfa / http://www.evilcodecave.blogspot.com'
-__version__ = '1.1'
+__version__ = '1.2'
 __license__ = 'GPL'
 
 import sys, os.path
@@ -50,6 +55,8 @@ import array, math
 import hashlib
 import zipfile
 import re
+
+import sqlite3
 
 from itertools import izip, cycle
 from optparse import OptionParser
@@ -64,15 +71,16 @@ MAGIC_VALUE = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
 
 def main():
     print("+-------------------------------+\n")
-    print("| OLE Scanner v. 1.1\n")
+    print("| OLE Scanner v. 1.2\n")
     print("| by Giuseppe 'Evilcry' Bonfa\n")
     print("+-------------------------------+\n")
 
     usage = "%Prog suspect_file\n"
     description = "Basical Scan for Malicious Embedded objects\n"
+    malicious_index = False
 
     parser = OptionParser(usage = usage, description = description,
-    version = "1.1")
+    version = "1.2")
 
     (options, args) = parser.parse_args()
 
@@ -121,10 +129,10 @@ def main():
               print("I/O Error: {0}".format(err))
 
           print("[+] Hash Informations\n")
-          obtain_hashes(mappedOle)
+          hashlist = obtain_hashes(mappedOle)
 
-          print("[+] Specific FileFormat Informations\n")
-##          fileFormat_scanner(fileName, mappedOle)
+          #print("[+] Specific FileFormat Informations\n")
+          #fileFormat_scanner(fileName, mappedOle)
 
           print("[+] Scanning for Embedded OLE in Clean\n")
 
@@ -143,6 +151,7 @@ def main():
               print("\n".join(apiScan))
               print("\n==========================================\n")
               print("Warning File is Potentially INFECTED!!!!\n")
+              malicious_index = True
 
           print("\n[+]Scanning for Embedded Executables - Clean Case\n")
 
@@ -154,6 +163,7 @@ def main():
               print("Embedded Executable discovered at offset :", hex(peInClean), "\n")
               print("\n==========================================\n")
               print("Warning File is Potentially INFECTED!!!!\n")
+              malicious_index = True
 
               print("[+] Scanning for Shellcode Presence\n")
 
@@ -165,22 +175,30 @@ def main():
                   print("\n".join(shellcode_presence))
                   print("\n==========================================\n")
                   print("Warning File is Potentially INFECTED!!!!\n")
-
-          print("[+] FileFormat Vulnerability Scanner\n")
-
-##          scan_for_known_vulnerabilities(fileName, mappedOle)
+                  malicious_index = True
+          
+          # Database Update
+          
+          update_DB('ole2.sqlite', hashlist, os.path.getsize(args[0]), malicious_index) # Default DB Name assumed ole2.sqlite
+          
+          #print("[+] FileFormat Vulnerability Scanner\n")
+          #scan_for_known_vulnerabilities(fileName, mappedOle)
 
           print("[+] Starting XOR Attack..\n")
 
           xor_bruteforcer(mappedOle)
 
-          return
+    return
 
 # ##############################################################################
 
 def directory_scanner(dirToScan):
     Completed = False
-    dirToScan = dirToScan + "\\"
+    
+    if os.name == 'nt':
+        dirToScan = dirToScan + "\\"
+    else:
+        dirToScan = dirToScan + "\\"
 
     fdirScan = open("DirScan.txt",'w')
     fdirScan.write("OLE2 Directory Scan\n")
@@ -447,13 +465,14 @@ def shellcode_scanner(mappedOle):
 
     match = re.search(b'\x55\x8b\xec\xe9',mappedOle)
     if match is not None:
+
         shellcode_presence.append("Call Prolog at offset:{0}".format(hex(match.start())))
 
     return shellcode_presence
 
-##def scan_for_known_vulnerabilities(fileName, mappedOle):
-##    fileFormat_scanner(fileName, mappedOle)
-##    return
+def scan_for_known_vulnerabilities(fileName, mappedOle):
+    fileFormat_scanner(fileName, mappedOle)
+    return
 
 def embd_PE_File(mappedOle):
 
@@ -475,15 +494,19 @@ def embd_PE_File(mappedOle):
 
     return 0
 
-def obtain_hashes(mappedOle):
-
+def obtain_hashes(mappedOle): #on time hash calc -> list()
+    hashlist = list()
+    
     md5 = hashlib.md5(mappedOle).hexdigest()
     sha1 = hashlib.sha1(mappedOle).hexdigest()
 
     print("MD5: {0}".format(md5))
     print("SHA-1: {0}".format(sha1))
+    
+    hashlist.append(md5)
+    hashlist.append(sha1)
 
-    return
+    return hashlist
 
 
 def dumpDecodedOle(mappedOle):
@@ -527,19 +550,44 @@ def docx_deflater(fileName):
         print("An error occurred during deflating")
     return False
 
-##def fileFormat_scanner(fileName, mappedOle):
-##
-##    if fileName.endswith('.ppt'):
-##        match = re.search()
-##        pass
-##    elif fileName.endswith('.xls'):
-##        match = re.search()
-##        pass
-##    else:
-##        pass
+def fileFormat_scanner(fileName, mappedOle):
 
-
+    if fileName.endswith('.ppt'):
+        match = re.search()
+        pass
+    elif fileName.endswith('.xls'):
+        match = re.search()
+        pass
+    else:
+        pass
+    
     return
-
+    
+def update_DB(databaseName, hashes, fileSize, bw_index):
+    try:
+        if bw_index == False:
+            malicious_index = "No"
+        else:
+            malicious_index = "Yes"
+        
+        md5 = hashes[0]  # PRIMARY KEY
+        sha1 = hashes[1] # PRIMARY KEY
+        
+        connect = sqlite3.connect(databaseName)
+        cursor = connect.cursor()
+        tup = ( 'Null', md5, sha1, fileSize, malicious_index )
+        cursor.execute('insert into BWList values(?,?,?,?,?)',tup)
+        del tup
+        connect.commit()
+        cursor.close()       
+        
+        return
+    except sqlite3.Error, e:
+        print("An Error Occurred:", e.args[0])
+        return
+    except:
+        print("Generic Error durig DB Update happened\n")
+        return
+    
 if __name__ == "__main__":
     main()
