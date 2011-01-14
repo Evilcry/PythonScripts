@@ -33,6 +33,10 @@
 # 26/11/2010 - DB Support for Single File
 # 27/11/2010 - Directory Scanner DB
 # 28/11/2010 - Progress Bar
+# 12/01/2011 - More API detection
+# 13/01/2011 - More Shellcode FS[30h] / Call-Pop detection
+# 13/01/2011 - More Shellcode XOR/ADD/SUB/ROL/ROR detection
+# 14/01/2011 - More Shellcode XOR/ADD/SUB/ROL/ROR + decryption key
 #
 # Next Version
 #
@@ -43,6 +47,7 @@
 # dump blocks of api suspect
 
 # Working On
+#
 # OleFileIO_PL Integration
 # CVE Detector
 # DONE:
@@ -495,27 +500,27 @@ def shellcode_scanner(mappedOle):
     if match is not None:
         shellcode_presence.append("FS:[00] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\xa1\x30\x00\x00',mappedOle) #
+    match = re.search(b'\x64\xa1\x30\x00\x00',mappedOle) 
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
         
-    match = re.search(b'\x64\x8b\x1d\x30\x00',mappedOle) #
+    match = re.search(b'\x64\x8b\x1d\x30\x00',mappedOle) 
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
         
-    match = re.search(b'\x64\x8b\x0d\x30\x00',mappedOle) #
+    match = re.search(b'\x64\x8b\x0d\x30\x00',mappedOle) 
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x15\x30\x00',mappedOle) #
+    match = re.search(b'\x64\x8b\x15\x30\x00',mappedOle) 
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x35\x30',mappedOle) #
+    match = re.search(b'\x64\x8b\x35\x30',mappedOle) 
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x3d\x30',mappedOle) #
+    match = re.search(b'\x64\x8b\x3d\x30',mappedOle) 
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
@@ -581,17 +586,59 @@ def shellcode_scanner(mappedOle):
         
     match = re.search(b'\xac\xd0\xc8\xaa',mappedOle)
     if match is not None:
-        shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
+        shellcode_presence.append("LODSB/STOSB ROR decryption:{0}".format(hex(match.start())))
         
-    match = re.search(b'\xac\xc0\xc0\xaa',mappedOle)
+    match = re.search(b'\x66\xad\x66\x35',mappedOle)
     if match is not None:
-        shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
+        start_shcod = match.start()
+        if ( unpack('B',mappedOle[start_shcod+6])[0] == 0x66 and
+             unpack('B',mappedOle[start_shcod+7[)[0] == 0xAB ):
+                 shellcode_presence.append("LODSW/STOSW XOR decryption signature:{0}".format(hex(start_shcod)))
         
-    match = re.search(b'\xac\xc0\xc8\xaa',mappedOle)
+    match = re.search(b'\x66\xad\x66\x05',mappedOle)
     if match is not None:
-        shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
+        start_shcod = match.start()
+        if ( unpack('B',mappedOle[start_shcod+6])[0] == 0x66 and
+             unpack('B',mappedOle[start_shcod+7])[0] == 0xAB ):
+                 shellcode_presence.append("LODSW/STOSW ADD decryption signature:{0}".format(hex(start_shcod)))
         
-    #TODO: add other 'decryption' shellcodes
+    match = re.search(b'\x66\xad\x66\x2d',mappedOle)
+    if match is not None:
+        start_shcod = match.start()
+        if ( unpack('B',mappedOle[start_shcod+6])[0] == 0x66 and
+             unpack('B',mappedOle[start_shcod+7])[0] == 0xAB ):
+                shellcode_presence.append("LODSW/STOSW SUB decryption signature:{0}".format(hex(start_shcod)))
+    
+    match = re.search(b'\xac\xc0\xc0',mappedOle)
+    if match is not None:
+        start_shcod = match.start()
+        if ( unpack('B',mappedOle[start_shcod+4])[0] == 0xAA ):
+            shellcode_presence.append("LODSB/STOSB ROL decryption signature:{0}".format(hex(start_shcod)))            
+            
+    match = re.search(b'\xac\xc0\xc8',mappedOle)
+    if match is not None:
+        start_shcod = match.start()
+        if ( unpack('B',mappedOle[start_shcod+4])[0] == 0xAA ):
+            shellcode_presence.append("LODSB/STOSB ROR decryption signature:{0}".format(hex(start_shcod)))
+            
+    
+    for match in re.finditer(b'\xac\x34',mappedOle):
+        start_shcod = match.start()
+        if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
+            shellcode_presence.append("LODSB/STOSB XOR decryption signature:{0}".format(hex(start_shcod)))
+            print("Shellcode XOR Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0])
+            
+    for match in re.finditer(b'\xac\x04',mappedOle):
+        start_shcod = match.start()
+        if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
+            shellcode_presence.append("LODSB/STOSB ADD decryption signature:{0}".format(hex(start_shcod)))
+            print("Shellcode ADD Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0])
+            
+    for match in re.finditer(b'\xac\x2c',mappedOle):
+        start_shcod = match.start()
+        if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
+            shellcode_presence.append("LODSB/STOSB ADD decryption signature:{0}".format(hex(start_shcod)))
+            print("Shellcode SUB Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0])
 
     return shellcode_presence
 
@@ -613,6 +660,7 @@ def embd_PE_File(mappedOle):
             if match is not None:
                 dump_PE_file(mappedOle,startPEOffset)
                 return startPEOffset
+
             else:
                 return 0
         else:
