@@ -83,6 +83,8 @@ except ImportError:
 
 MAGIC_VALUE = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
 
+PBAR_ACTIVE = False
+
 #End Global Vars
 
 # ##############################################################################
@@ -331,12 +333,14 @@ def directory_scanner(dirToScan):
               continue
           
           #START XOR Attack
-          progBar = progressBar(0,256,50)
+          if PBAR_ACTIVE == True:
+              progBar = progressBar(0,256,50)
           fdirScan.write("[+] Starting XOR Attack..\n")
           for i in range (256):
-            progBar.updateAmount(i)
-            print progBar, "\r",
-            time.sleep(.05)
+            if PBAR_ACTIVE == True:
+                progBar.updateAmount(i)
+                print progBar, "\r",
+                time.sleep(.05)
             bruted = xor_decrypt_data(mappedOle, i)
             startPEOffset = embd_PE_File(bruted)
             if startPEOffset != 0:
