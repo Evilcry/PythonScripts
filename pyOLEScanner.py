@@ -564,7 +564,7 @@ def shellcode_scanner(mappedOle):
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
     
-     match = re.search(b'\xe8\x00\x00\x00\x00\x5b',mappedOle)
+    match = re.search(b'\xe8\x00\x00\x00\x00\x5b',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start()))) 
         
@@ -596,7 +596,7 @@ def shellcode_scanner(mappedOle):
     if match is not None:
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+6])[0] == 0x66 and
-             unpack('B',mappedOle[start_shcod+7[)[0] == 0xAB ):
+             unpack('B',mappedOle[start_shcod+7])[0] == 0xAB ):
                  shellcode_presence.append("LODSW/STOSW XOR decryption signature:{0}".format(hex(start_shcod)))
         
     match = re.search(b'\x66\xad\x66\x05',mappedOle)
@@ -630,19 +630,19 @@ def shellcode_scanner(mappedOle):
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
             shellcode_presence.append("LODSB/STOSB XOR decryption signature:{0}".format(hex(start_shcod)))
-            print("Shellcode XOR Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0])
+            print("Shellcode XOR Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0]))
             
     for match in re.finditer(b'\xac\x04',mappedOle):
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
             shellcode_presence.append("LODSB/STOSB ADD decryption signature:{0}".format(hex(start_shcod)))
-            print("Shellcode ADD Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0])
+            print("Shellcode ADD Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0]))
             
     for match in re.finditer(b'\xac\x2c',mappedOle):
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
             shellcode_presence.append("LODSB/STOSB ADD decryption signature:{0}".format(hex(start_shcod)))
-            print("Shellcode SUB Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0])
+            print("Shellcode SUB Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0]))
 
     return shellcode_presence
 
