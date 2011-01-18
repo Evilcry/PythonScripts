@@ -37,6 +37,11 @@
 # 13/01/2011 - More Shellcode FS[30h] / Call-Pop detection
 # 13/01/2011 - More Shellcode XOR/ADD/SUB/ROL/ROR detection
 # 14/01/2011 - More Shellcode XOR/ADD/SUB/ROL/ROR + decryption key
+# 15/01/2011 - Progress Bar Activation Flag
+# 16/01/2011 - String to Hex formatted Regex
+# 16/01/2011 - RTF Scanner
+# 16/01/2011 - Macro Detector for classical OLE2 files
+# 16/01/2011 - fileFormat_scanner() added encryption detection for Word files
 #
 # Next Version
 #
@@ -50,8 +55,7 @@
 #
 # OleFileIO_PL Integration
 # CVE Detector
-# DONE:
-# SQLite Integration
+# RTF Scan
 
 
 __author__ = 'Giuseppe (Evilcry) Bonfa / http://www.evilcodecave.blogspot.com'
@@ -74,7 +78,7 @@ from optparse import OptionParser
 try:
     import sqlite3
     from pbar import progressBar
-    import OleFileIO_PL
+    from OleFileIO_PL import OleFileIO
 except ImportError:
     print(ImportError)
     sys.exit(-1)
@@ -147,11 +151,20 @@ def main():
               f.close()
           except IOError as err:
               print("I/O Error: {0}".format(err))
+              
+          # RTF Case
+          
+          if fileName.endswith('.rtf'):
+              print("[*] Starting Scan for RTF Files")
+              
+              if rtf_scan(mappedOle) is True:
+                  print("File Potentially INFECTED!!!!!")
+              else:
+                  print("File Appears CLEAN")
 
           print("[+] Hash Informations\n")
           hashlist = obtain_hashes(mappedOle)
-
-          
+                    
           print("[+] Scanning for Embedded OLE in Clean\n")
 
           if embd_ole_scan(mappedOle) is True:
@@ -194,6 +207,16 @@ def main():
                   print("\n==========================================\n")
                   print("Warning File is Potentially INFECTED!!!!\n")
                   malicious_index = True
+                  
+              print("[+] Scanning for MACROs")
+              
+              if macro_detector(mappedOle) == True:
+                  print("\n==========================================\n")
+                  print("Warning File Contains MACROs\n")
+              else:
+                  print("\n==========================================\n")
+                  print("No MACROs Revealed")
+                  
           
           # Database Update
                  
@@ -208,6 +231,66 @@ def main():
     return
 
 # ##############################################################################
+
+def macro_docx_scanner(folder):
+    return True
+
+def str2hexre (toConvert): #from string to hex based regexp
+    
+    regex = r''
+    for c in toConvert:
+        code_lower = ord(c.lower())
+        code_upper = ord(c.upper())
+        regex += r'(?:%02X|%02X)' % (code_lower, code_upper)
+    return regex
+
+def rtf_scan(mappedOle):
+    rtf_magic = str2hexre('Package')
+    match = re.search(rtf_magic, mappedOle)
+    if match is not None:
+        print("[*] OLE Package Discovered, Potential Risk!")
+        # other stuff
+    else:
+        print("[-] No OLE Package Revealed")
+        
+    return True
+
+def fileFormat_scanner(fileName):
+    
+    try:
+        oleFile = OleFileIO(fileName)
+        enum_streams = oleFile.listdir()
+        
+        for s in enum_streams:
+            if s == ["\x05SummaryInformation"]:
+                print("Summary Informations Available")
+                properties = oleFile.getproperties(s)
+                if 0x12 in properties:
+                    appName = properties[0x12]
+                if 0x13 in properties:
+                    if properties[0x13] & 1:
+                        print("Document is Encrypted")
+                if s == ['WordDocument']:
+                    s_word = oleFile.openstream(['WordDocument'])
+                    s_word.read(10)
+                    temp16 = unpack("H", s_word.read(2))[0]
+                    fEncrypted = (temp16 & 0x0100) >> 8
+                    if fEncrypted:
+                        print("Word Document Encrypted")
+                    s_word.close()                    
+    except:
+        print("Error While Processing OLE Streams")
+        return False
+
+    return True
+    
+def macro_detector(mappedOle):
+    match = re.search(r'M\x00a\x00c\x00r\x00o\x00s',mappedOle)
+    if match is not None:
+        return True
+    else:
+        return False
+    return
 
 def directory_scanner(dirToScan):
     Completed = False
@@ -631,8 +714,8 @@ def shellcode_scanner(mappedOle):
         if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
             shellcode_presence.append("LODSB/STOSB XOR decryption signature:{0}".format(hex(start_shcod)))
             print("Shellcode XOR Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0]))
-            
-    for match in re.finditer(b'\xac\x04',mappedOle):
+                        
+    for match in re.finditer(b'\xac\x04',mappedOle):        
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
             shellcode_presence.append("LODSB/STOSB ADD decryption signature:{0}".format(hex(start_shcod)))
@@ -719,7 +802,10 @@ def docx_deflater(fileName):
             print("Invalid DOCX File Format")
             return False
         else:
-            dire = os.curdir + "\\" + fileName[:len(fileName)-4]
+            if os.name == 'nt':
+                dire = os.curdir + "\\" + fileName[:len(fileName)-4]
+            elif os.name == 'posix':
+                dire = os.curdir + "/" + fileName[:len(fileName)-4]
 
             if not os.path.exists(dire):
                 os.mkdir(dire)
@@ -727,6 +813,14 @@ def docx_deflater(fileName):
                 deflater.printdir()
                 deflater.extractall(dire)
                 deflater.close()
+                
+                # Check for malicious MACROs docx/pptx/xlsx
+                if macro_docx_scanner(dire) is True:
+                    print("File Contains MALICIOUS Macros!!!!")
+                    return True
+                else:
+                    print("File Does not Contain Macros")
+                    return True
             else:
                 print("Directory that belongs to that docx already exists\n")
                 return False
@@ -738,19 +832,6 @@ def docx_deflater(fileName):
     except:
         print("An error occurred during deflating")
     return False
-
-def fileFormat_scanner(fileName, mappedOle):
-
-    if fileName.endswith('.ppt'):
-        match = re.search()
-        pass
-    elif fileName.endswith('.xls'):
-        match = re.search()
-        pass
-    else:
-        pass
-    
-    return
     
 def update_DB(databaseName, hashes, fileSize, bw_index):
     try:
