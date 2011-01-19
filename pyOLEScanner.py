@@ -69,6 +69,7 @@ import hashlib
 import zipfile
 import re
 import time
+import pefile
 
 from struct import unpack
 from itertools import izip, cycle
@@ -133,7 +134,9 @@ def main():
                 f = open(fileName,'rb')
                 mappedDocx = f.read()
                 f.close()
+                print("\n==========================\n")
                 obtain_hashes(mappedDocx)
+                return
             except IOError as err:
                 print("I/O Error: {0}".format(err))
             except:
@@ -231,12 +234,15 @@ def main():
 
 # ##############################################################################
 
-def macro_docx_scanner(folder):
-    #unimplemented
-    return True
+def macro_docx_scanner(folder, internal_ext):
+    dirpath = os.listdir(folder + internal_ext)
+    for fileName in dirpath:
+        if fileName == 'vbaProject.bin':
+            print("===> VBA Macro Revealed!")
+            return True                        
+    return False
 
-def str2hexre (toConvert): #from string to hex based regexp
-    
+def str2hexre (toConvert): #from string to hex based regexp    
     regex = r''
     for c in toConvert:
         code_lower = ord(c.lower())
@@ -256,7 +262,7 @@ def rtf_scan(mappedOle):
     return True
 
 def fileFormat_scanner(fileName):
-    #to be continued
+    
     try:
         oleFile = OleFileIO(fileName)
         enum_streams = oleFile.listdir()
@@ -799,13 +805,26 @@ def docx_deflater(fileName):
 
     try:
         if zipfile.is_zipfile(fileName) == False:
-            print("Invalid DOCX File Format")
+            print("Invalid Office2007 File Format")
             return False
         else:
             if os.name == 'nt':
-                dire = os.curdir + "\\" + fileName[:len(fileName)-4]
+                dire = os.curdir + "\\" + fileName[:len(fileName)-5]
+                if fileName.endswith('docx'):
+                    internal_ext = '\\word'
+                elif fileName.endswith('pptx'):
+                    internal_ext = '\\ppt'
+                elif fileName.endswith('xlsx'):
+                    internal_ext = '\\xl'
+                
             elif os.name == 'posix':
-                dire = os.curdir + "/" + fileName[:len(fileName)-4]
+                dire = os.curdir + "/" + fileName[:len(fileName)-5]
+                if fileName.endswith('docx'):
+                    internal_ext = '/word'
+                elif fileName.endswith('pptx'):
+                    internal_ext = '/ppt'
+                elif fileName.endswith('xlsx'):
+                    internal_ext = '/xl'
 
             if not os.path.exists(dire):
                 os.mkdir(dire)
@@ -815,7 +834,7 @@ def docx_deflater(fileName):
                 deflater.close()
                 
                 # Check for malicious MACROs docx/pptx/xlsx
-                if macro_docx_scanner(dire) is True:
+                if macro_docx_scanner(dire, internal_ext) is True:
                     print("File Contains MALICIOUS Macros!!!!")
                     return True
                 else:
