@@ -69,7 +69,6 @@ import hashlib
 import zipfile
 import re
 import time
-import pefile
 
 from struct import unpack
 from itertools import izip, cycle
@@ -233,6 +232,7 @@ def main():
 # ##############################################################################
 
 def macro_docx_scanner(folder):
+    #unimplemented
     return True
 
 def str2hexre (toConvert): #from string to hex based regexp
@@ -256,7 +256,7 @@ def rtf_scan(mappedOle):
     return True
 
 def fileFormat_scanner(fileName):
-    
+    #to be continued
     try:
         oleFile = OleFileIO(fileName)
         enum_streams = oleFile.listdir()
