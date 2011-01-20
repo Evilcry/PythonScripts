@@ -42,6 +42,8 @@
 # 16/01/2011 - RTF Scanner
 # 16/01/2011 - Macro Detector for classical OLE2 files
 # 16/01/2011 - fileFormat_scanner() added encryption detection for Word files
+# 19/01/2011 - Office2007 VBA Macros Detector
+# 20/01/2011 - zip_archive() added
 #
 # Next Version
 #
@@ -56,6 +58,7 @@
 # OleFileIO_PL Integration
 # CVE Detector
 # RTF Scan
+# zip archive support
 
 
 __author__ = 'Giuseppe (Evilcry) Bonfa / http://www.evilcodecave.blogspot.com'
@@ -63,13 +66,9 @@ __version__ = '1.2'
 __license__ = 'GPL'
 
 import sys, os.path
-import string, struct
-import array, math
 import hashlib
 import zipfile
 import re
-import time
-import pefile
 
 from struct import unpack
 from itertools import izip, cycle
@@ -80,7 +79,7 @@ try:
     from pbar import progressBar
     from OleFileIO_PL import OleFileIO
 except ImportError:
-    print(ImportError)
+    print("ImportError")
     sys.exit(-1)
 
 #Start Global Vars
@@ -111,8 +110,7 @@ def main():
     if len(args) < 1:
         print("Specify a suspect OLE file or directory with OLE files\n")
     else:
-       # fileName = args[0]
-
+       
         if os.path.isdir(args[0]) is True:
             if directory_scanner(args[0]) is True:
                 print("Directory Scan Completed Please Look at DirScan.txt\n")
@@ -126,7 +124,18 @@ def main():
         else:
             print("Invalid Entry Specified\n")
             pass
-
+        
+        #START Zip Archive    
+        if fileName.endswith('.zip'):
+            print("[+] Zip Archive Detected, Scanning")
+            if zip_archive(fileName) is True:
+                print("[+] Zip Archive Scan Completed")
+                sys.exit(1)
+            else:
+                print("[-] Zip Archive Scan Failed")
+                sys.exit(-1)
+        #END Zip Archive
+        
         if fileName.endswith('.docx') or fileName.endswith('.pptx') or fileName.endswith('.xlsx'):
             print("Starting Deflate Procedure")
             docx_deflater(fileName)
@@ -142,7 +151,7 @@ def main():
             except:
                 print("Generic Error Happened\n")
 
-        if isOleFile(fileName) == False:
+        if isOleFile(fileName) is False:
             print("This is not a valid OLE File\n")
             exit
         else:
@@ -154,8 +163,7 @@ def main():
           except IOError as err:
               print("I/O Error: {0}".format(err))
               
-          # RTF Case
-          
+          #START RTF Case          
           if fileName.endswith('.rtf'):
               print("[*] Starting Scan for RTF Files")
               
@@ -163,7 +171,8 @@ def main():
                   print("File Potentially INFECTED!!!!!")
               else:
                   print("File Appears CLEAN")
-
+          #END RTF Case
+          
           print("[+] Hash Informations\n")
           hashlist = obtain_hashes(mappedOle)
                     
@@ -186,7 +195,7 @@ def main():
               print("Warning File is Potentially INFECTED!!!!\n")
               malicious_index = True
 
-          print("\n[+]Scanning for Embedded Executables - Clean Case\n")
+          print("\n[+] Scanning for Embedded Executables - Clean Case\n")
 
           peInClean = embd_PE_File(mappedOle)
 
@@ -198,28 +207,27 @@ def main():
               print("Warning File is Potentially INFECTED!!!!\n")
               malicious_index = True
 
-              print("[+] Scanning for Shellcode Presence\n")
+          print("[+] Scanning for Shellcode Presence\n")
 
-              shellcode_presence = shellcode_scanner(mappedOle)
+          shellcode_presence = shellcode_scanner(mappedOle)
 
-              if len(shellcode_presence) == 0:
-                  print("No Shellcode Revealed\n")
-              else:
-                  print("\n".join(shellcode_presence))
-                  print("\n==========================================\n")
-                  print("Warning File is Potentially INFECTED!!!!\n")
-                  malicious_index = True
-                  
-              print("[+] Scanning for MACROs")
+          if len(shellcode_presence) == 0:
+              print("No Shellcode Revealed\n")
+          else:
+              print("\n".join(shellcode_presence))
+              print("\n==========================================\n")
+              print("Warning File is Potentially INFECTED!!!!\n")
+              malicious_index = True
               
-              if macro_detector(mappedOle) == True:
-                  print("\n==========================================\n")
-                  print("Warning File Contains MACROs\n")
-              else:
-                  print("\n==========================================\n")
-                  print("No MACROs Revealed")
-                  
+          print("[+] Scanning for MACROs")
           
+          if macro_detector(mappedOle) == True:
+              print("\n==========================================\n")
+              print("Warning File Contains MACROs\n")
+          else:
+              print("\n==========================================\n")
+              print("No MACROs Revealed")                  
+      
           # Database Update
                  
           if malicious_index == True:
@@ -257,8 +265,7 @@ def rtf_scan(mappedOle):
         print("[*] OLE Package Discovered, Potential Risk!")
         # other stuff
     else:
-        print("[-] No OLE Package Revealed")
-        
+        print("[-] No OLE Package Revealed")        
     return True
 
 def fileFormat_scanner(fileName):
@@ -424,6 +431,8 @@ def directory_scanner(dirToScan):
           #START XOR Attack
           if PBAR_ACTIVE == True:
               progBar = progressBar(0,256,50)
+          else:
+              print("[+] Please Wait - XOR Bruteforce Attack Started")
           fdirScan.write("[+] Starting XOR Attack..\n")
           for i in range (256):
             if PBAR_ACTIVE == True:
@@ -445,11 +454,9 @@ def directory_scanner(dirToScan):
                      continue
           #END XOR Attack
           
-          #START UpdateDB 
-          
+          #START UpdateDB          
           update_DB('ole2.sqlite', hashlist, os.path.getsize(pathFile), malicious_index) # Default DB Name assumed ole2.sqlite
-
-          #End UpdateDB 
+          #END UpdateDB 
 
           fdirScan.write("[+] Scanning for Embedded OLE - XOR Case\n")
           if startPEOffset != 0:
@@ -578,7 +585,6 @@ def xor_bruteforcer(mappedOle):
     if startPEOffset != 0:
         if embd_ole_scan(bruted) == True:
             print("Embedded OLE Detected \n")
-
     return
 
 def shellcode_scanner(mappedOle):
@@ -653,10 +659,6 @@ def shellcode_scanner(mappedOle):
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
     
-    match = re.search(b'\xe8\x00\x00\x00\x00\x5b',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start()))) 
-        
     match = re.search(b'\xe8\x00\x00\x00\x00\x5e',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
@@ -750,26 +752,14 @@ def embd_PE_File(mappedOle):
         if match is not None:
 
             match = re.search(b'This program ',mappedOle)
-            if match is not None:
-                dump_PE_file(mappedOle,startPEOffset)
+            if match is not None:                
                 return startPEOffset
-
             else:
                 return 0
         else:
             return 0
 
     return 0
-    
-def dump_PE_file(mappedOle, startMZ):
-    execToCarve = mappedOle[startMZ:]
-    
-    var_1 = execToCarve[0x38+0x54:4]
-    print(var_1)
-    var_2 = execToCarve[0x3C+0x18:4] + execToCarve[0x3C+0x14:2]
-    print(var_2)    
-    
-    return True
     
 
 def obtain_hashes(mappedOle): #on time hash calc -> list()
@@ -785,7 +775,6 @@ def obtain_hashes(mappedOle): #on time hash calc -> list()
     hashlist.append(sha1)
 
     return hashlist
-
 
 def dumpDecodedOle(mappedOle):
 
@@ -836,6 +825,11 @@ def docx_deflater(fileName):
                 # Check for malicious MACROs docx/pptx/xlsx
                 if macro_docx_scanner(dire, internal_ext) is True:
                     print("File Contains MALICIOUS Macros!!!!")
+                    print("[*] In Depth Analysis")
+                    if office2007_details(dire, internal_ext) is True:
+                        print("[*] Additional Details Correctly Dumped in Report")
+                    else:
+                        print("[-] Error While Producing Details Report")
                     return True
                 else:
                     print("File Does not Contain Macros")
@@ -877,6 +871,45 @@ def update_DB(databaseName, hashes, fileSize, bw_index):
     except:
         print("Generic Error durig DB Update happened\n")
         return
+        
+def office2007_details(folder, internal_ext):
+    # unimplemented
+    return True
+
+def zip_archive(fileName):
+    
+    try:
+        if zipfile.is_zipfile(fileName) is True:
+                                    
+            if os.name == 'nt':
+                temp_folder = os.curdir + "\\" + fileName[:len(fileName)-4]
+            elif os.name == 'posix':
+                temp_folder = os.curdir + "/" + fileName[:len(fileName)-4]                
+                                        
+            if not os.path.exists(temp_folder):
+                os.mkdir(temp_folder)
+                deflater = zipfile.ZipFile(fileName)
+                deflater.printdir()
+                deflater.extractall(temp_folder)
+                deflater.close()
+                
+                if directory_scanner(temp_folder) is True:
+                    print("Directory Scan Completed Please Look at DirScan.txt\n")
+                    return True
+                else:
+                    print("Directory Scan Failed")
+                    return False
+            else:
+                print("Temp Dir Already Exists")
+                return False
+            
+        else:
+            print("Invalid or Corrupted Zip Archive")
+            return False
+    except:
+        print("Generic Error Happened While Deflating Archive")
+    
+    return True
     
 if __name__ == "__main__":
     main()
