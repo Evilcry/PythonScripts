@@ -88,6 +88,8 @@ MAGIC_VALUE = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
 
 PBAR_ACTIVE = False
 
+ZIP_SCAN = False
+
 #End Global Vars
 
 # ##############################################################################
@@ -125,16 +127,17 @@ def main():
             print("Invalid Entry Specified\n")
             pass
         
-        #START Zip Archive    
-        if fileName.endswith('.zip'):
-            print("[+] Zip Archive Detected, Scanning")
-            if zip_archive(fileName) is True:
-                print("[+] Zip Archive Scan Completed")
-                sys.exit(1)
-            else:
-                print("[-] Zip Archive Scan Failed")
-                sys.exit(-1)
-        #END Zip Archive
+        if ZIP_SCAN is True:
+            #START Zip Archive    
+            if fileName.endswith('.zip'):
+                print("[+] Zip Archive Detected, Scanning")
+                if zip_archive(fileName) is True:
+                    print("[+] Zip Archive Scan Completed")
+                    sys.exit(1)
+                else:
+                    print("[-] Zip Archive Scan Failed")
+                    sys.exit(-1)
+            #END Zip Archive
         
         if fileName.endswith('.docx') or fileName.endswith('.pptx') or fileName.endswith('.xlsx'):
             print("Starting Deflate Procedure")
