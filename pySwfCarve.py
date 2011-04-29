@@ -57,7 +57,11 @@ def swfScan(mappedFile):
     if match is not None:
         return match.start()
     else:
-        return 0
+        match = re.search('CWS', mappedFile)
+        if match is not None:
+            return match.start()
+        else:
+            return 0
     pass
 
 def carveSwf(mappedFile, flash_offset, outfilename):
