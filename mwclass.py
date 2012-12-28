@@ -49,6 +49,7 @@ class mwClassify():
                     os.remove(self.dirtoscan + "\\" + filename)
                     print "Removed: %s with MD5 Hash: %s" % (filename, md5)
 
+
 ##def main():
 ##    mwClassifier = mwClassify("15-8-2012")
 ##    mwClassifier.hashlist()
