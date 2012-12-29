@@ -6,7 +6,7 @@
 #
 # Created:     12/08/2012
 # Copyright:   (c) Giuseppe 2012
-# Licence:  FATTI I CAZZI TOI - Cettolaqualunque 1.0
+# Licence:     GPL
 #-------------------------------------------------------------------------------
 
 import os
@@ -15,6 +15,11 @@ import threading
 import urllib2
 import hashlib
 import datetime
+try:
+    import mwclass
+except ImportError:
+    print "missing mwclass module"
+
 
 # - MultiThreaded Queue based Downloader - START
 class Downloader(threading.Thread):
@@ -40,8 +45,8 @@ class Downloader(threading.Thread):
         try:
             f = open(destdir + "\\" + fname,'wb')
             if 'content' in locals():
-                if len(content) is not 0:
-                    f.write(content)
+                f.write(content)
+                    #f.write(content)
             f.close()
         except IOError, e:
             print "Skipping: %s" % fname
@@ -90,6 +95,11 @@ def main():
 
     queue.join()
     # Mass Download - END
+    print "\n--------Mass Download Completed with Success---------\n"
+    print "Building hash list file\n"
+    mwclassifier = mwclass.mwClassify(download_dir)
+    mwclassifier.hashlist()
+
 
     pass
 
