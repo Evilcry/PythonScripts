@@ -112,7 +112,7 @@ def main():
     if len(args) < 1:
         print("Specify a suspect OLE file or directory with OLE files\n")
     else:
-       
+
         if os.path.isdir(args[0]) is True:
             if directory_scanner(args[0]) is True:
                 print("Directory Scan Completed Please Look at DirScan.txt\n")
@@ -126,9 +126,9 @@ def main():
         else:
             print("Invalid Entry Specified\n")
             pass
-        
+
         if ZIP_SCAN is True:
-            #START Zip Archive    
+            #START Zip Archive
             if fileName.endswith('.zip'):
                 print("[+] Zip Archive Detected, Scanning")
                 if zip_archive(fileName) is True:
@@ -138,7 +138,7 @@ def main():
                     print("[-] Zip Archive Scan Failed")
                     sys.exit(-1)
             #END Zip Archive
-        
+
         if fileName.endswith('.docx') or fileName.endswith('.pptx') or fileName.endswith('.xlsx'):
             print("Starting Deflate Procedure")
             docx_deflater(fileName)
@@ -165,20 +165,20 @@ def main():
               f.close()
           except IOError as err:
               print("I/O Error: {0}".format(err))
-              
-          #START RTF Case          
+
+          #START RTF Case
           if fileName.endswith('.rtf'):
               print("[*] Starting Scan for RTF Files")
-              
+
               if rtf_scan(mappedOle) is True:
                   print("File Potentially INFECTED!!!!!")
               else:
                   print("File Appears CLEAN")
           #END RTF Case
-          
+
           print("[+] Hash Informations\n")
           hashlist = obtain_hashes(mappedOle)
-                    
+
           print("[+] Scanning for Embedded OLE in Clean\n")
 
           if embd_ole_scan(mappedOle) is True:
@@ -221,25 +221,25 @@ def main():
               print("\n==========================================\n")
               print("Warning File is Potentially INFECTED!!!!\n")
               malicious_index = True
-              
+
           print("[+] Scanning for MACROs")
-          
+
           if macro_detector(mappedOle) == True:
               print("\n==========================================\n")
               print("Warning File Contains MACROs\n")
           else:
               print("\n==========================================\n")
-              print("No MACROs Revealed")                  
-      
+              print("No MACROs Revealed")
+
           # Database Update
-                 
+
           if malicious_index == True:
               update_DB('ole2.sqlite', hashlist, os.path.getsize(args[0]), malicious_index) # Default DB Name assumed ole2.sqlite
               return
           else:
               print("[+] Starting XOR Attack..\n")
               malicious_index = xor_bruteforcer(mappedOle)
-              update_DB('ole2.sqlite', hashlist, os.path.getsize(args[0]), malicious_index)              
+              update_DB('ole2.sqlite', hashlist, os.path.getsize(args[0]), malicious_index)
               return
     return
 
@@ -250,10 +250,10 @@ def macro_docx_scanner(folder, internal_ext):
     for fileName in dirpath:
         if fileName == 'vbaProject.bin':
             print("===> VBA Macro Revealed!")
-            return True                        
+            return True
     return False
 
-def str2hexre (toConvert): #from string to hex based regexp    
+def str2hexre (toConvert): #from string to hex based regexp
     regex = r''
     for c in toConvert:
         code_lower = ord(c.lower())
@@ -268,15 +268,15 @@ def rtf_scan(mappedOle):
         print("[*] OLE Package Discovered, Potential Risk!")
         # other stuff
     else:
-        print("[-] No OLE Package Revealed")        
+        print("[-] No OLE Package Revealed")
     return True
 
 def fileFormat_scanner(fileName):
-    
+
     try:
         oleFile = OleFileIO(fileName)
         enum_streams = oleFile.listdir()
-        
+
         for s in enum_streams:
             if s == ["\x05SummaryInformation"]:
                 print("Summary Informations Available")
@@ -293,13 +293,13 @@ def fileFormat_scanner(fileName):
                     fEncrypted = (temp16 & 0x0100) >> 8
                     if fEncrypted:
                         print("Word Document Encrypted")
-                    s_word.close()                    
+                    s_word.close()
     except:
         print("Error While Processing OLE Streams")
         return False
 
     return True
-    
+
 def macro_detector(mappedOle):
     match = re.search(r'M\x00a\x00c\x00r\x00o\x00s',mappedOle)
     if match is not None:
@@ -311,7 +311,7 @@ def macro_detector(mappedOle):
 def directory_scanner(dirToScan):
     Completed = False
     malicious_index = False
-    
+
     if os.name == 'nt':
         dirToScan = dirToScan + "\\"
     else:
@@ -419,7 +419,7 @@ def directory_scanner(dirToScan):
               fdirScan.write("Warning File is Potentially INFECTED!!!!\n")
               malicious_index = True
           #END Scanning for Shellcode
-          
+
           if malicious_index == True:
               update_DB('ole2.sqlite', hashlist, os.path.getsize(pathFile), malicious_index) # Default DB Name assumed ole2.sqlite
 
@@ -430,7 +430,7 @@ def directory_scanner(dirToScan):
               fdirScan.write("\n########################################################\n")
 
               continue
-          
+
           #START XOR Attack
           if PBAR_ACTIVE == True:
               progBar = progressBar(0,256,50)
@@ -456,10 +456,10 @@ def directory_scanner(dirToScan):
                      print("Error Occurred")
                      continue
           #END XOR Attack
-          
-          #START UpdateDB          
+
+          #START UpdateDB
           update_DB('ole2.sqlite', hashlist, os.path.getsize(pathFile), malicious_index) # Default DB Name assumed ole2.sqlite
-          #END UpdateDB 
+          #END UpdateDB
 
           fdirScan.write("[+] Scanning for Embedded OLE - XOR Case\n")
           if startPEOffset != 0:
@@ -512,31 +512,31 @@ def known_api_revealer(mappedOle):
     match = re.search(b'UrlDownloadToFile',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'GetTempPath',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'IsBadReadPtr',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'IsBadWritePtr',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'CloseHandle',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'ReadFile',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'SetFilePointer',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'VirtualAlloc',mappedOle)
     if match is not None:
         apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
@@ -602,27 +602,27 @@ def shellcode_scanner(mappedOle):
     if match is not None:
         shellcode_presence.append("FS:[00] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\xa1\x30\x00\x00',mappedOle) 
-    if match is not None:
-        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
-        
-    match = re.search(b'\x64\x8b\x1d\x30\x00',mappedOle) 
-    if match is not None:
-        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
-        
-    match = re.search(b'\x64\x8b\x0d\x30\x00',mappedOle) 
+    match = re.search(b'\x64\xa1\x30\x00\x00',mappedOle)
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x15\x30\x00',mappedOle) 
+    match = re.search(b'\x64\x8b\x1d\x30\x00',mappedOle)
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x35\x30',mappedOle) 
+    match = re.search(b'\x64\x8b\x0d\x30\x00',mappedOle)
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
-    match = re.search(b'\x64\x8b\x3d\x30',mappedOle) 
+    match = re.search(b'\x64\x8b\x15\x30\x00',mappedOle)
+    if match is not None:
+        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
+
+    match = re.search(b'\x64\x8b\x35\x30',mappedOle)
+    if match is not None:
+        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
+
+    match = re.search(b'\x64\x8b\x3d\x30',mappedOle)
     if match is not None:
         shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
 
@@ -641,97 +641,97 @@ def shellcode_scanner(mappedOle):
     match = re.search(b'\x55\x8b\xec\xe9',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Prolog at offset:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\x90\x90\x90\x90',mappedOle)
     if match is not None:
         shellcode_presence.append("NOP Slide:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xd9\xee\xd9\x74\x24\xf4',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xe8\x00\x00\x00\x00\x58',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xe8\x00\x00\x00\x00\x59',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xe8\x00\x00\x00\x00\x5a',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-    
+
     match = re.search(b'\xe8\x00\x00\x00\x00\x5e',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xe8\x00\x00\x00\x00\x5f',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xe8\x00\x00\x00\x00\x5d',mappedOle)
     if match is not None:
         shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xd9\xee\xd9\x74\x24\xf4',mappedOle)
     if match is not None:
         shellcode_presence.append("Fldz Signature:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xac\xd0\xc0\xaa',mappedOle)
     if match is not None:
         shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\xac\xd0\xc8\xaa',mappedOle)
     if match is not None:
         shellcode_presence.append("LODSB/STOSB ROR decryption:{0}".format(hex(match.start())))
-        
+
     match = re.search(b'\x66\xad\x66\x35',mappedOle)
     if match is not None:
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+6])[0] == 0x66 and
              unpack('B',mappedOle[start_shcod+7])[0] == 0xAB ):
                  shellcode_presence.append("LODSW/STOSW XOR decryption signature:{0}".format(hex(start_shcod)))
-        
+
     match = re.search(b'\x66\xad\x66\x05',mappedOle)
     if match is not None:
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+6])[0] == 0x66 and
              unpack('B',mappedOle[start_shcod+7])[0] == 0xAB ):
                  shellcode_presence.append("LODSW/STOSW ADD decryption signature:{0}".format(hex(start_shcod)))
-        
+
     match = re.search(b'\x66\xad\x66\x2d',mappedOle)
     if match is not None:
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+6])[0] == 0x66 and
              unpack('B',mappedOle[start_shcod+7])[0] == 0xAB ):
                 shellcode_presence.append("LODSW/STOSW SUB decryption signature:{0}".format(hex(start_shcod)))
-    
+
     match = re.search(b'\xac\xc0\xc0',mappedOle)
     if match is not None:
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+4])[0] == 0xAA ):
-            shellcode_presence.append("LODSB/STOSB ROL decryption signature:{0}".format(hex(start_shcod)))            
-            
+            shellcode_presence.append("LODSB/STOSB ROL decryption signature:{0}".format(hex(start_shcod)))
+
     match = re.search(b'\xac\xc0\xc8',mappedOle)
     if match is not None:
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+4])[0] == 0xAA ):
             shellcode_presence.append("LODSB/STOSB ROR decryption signature:{0}".format(hex(start_shcod)))
-            
-    
+
+
     for match in re.finditer(b'\xac\x34',mappedOle):
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
             shellcode_presence.append("LODSB/STOSB XOR decryption signature:{0}".format(hex(start_shcod)))
             print("Shellcode XOR Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0]))
-                        
-    for match in re.finditer(b'\xac\x04',mappedOle):        
+
+    for match in re.finditer(b'\xac\x04',mappedOle):
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
             shellcode_presence.append("LODSB/STOSB ADD decryption signature:{0}".format(hex(start_shcod)))
             print("Shellcode ADD Key is: " + hex(unpack('B',mappedOle[start_shcod+2])[0]))
-            
+
     for match in re.finditer(b'\xac\x2c',mappedOle):
         start_shcod = match.start()
         if ( unpack('B',mappedOle[start_shcod+3])[0] == 0xAA ):
@@ -755,7 +755,7 @@ def embd_PE_File(mappedOle):
         if match is not None:
 
             match = re.search(b'This program ',mappedOle)
-            if match is not None:                
+            if match is not None:
                 return startPEOffset
             else:
                 return 0
@@ -763,17 +763,17 @@ def embd_PE_File(mappedOle):
             return 0
 
     return 0
-    
+
 
 def obtain_hashes(mappedOle): #on time hash calc -> list()
     hashlist = list()
-    
+
     md5 = hashlib.md5(mappedOle).hexdigest()
     sha1 = hashlib.sha1(mappedOle).hexdigest()
 
     print("MD5: {0}".format(md5))
     print("SHA-1: {0}".format(sha1))
-    
+
     hashlist.append(md5)
     hashlist.append(sha1)
 
@@ -808,7 +808,7 @@ def docx_deflater(fileName):
                     internal_ext = '\\ppt'
                 elif fileName.endswith('xlsx'):
                     internal_ext = '\\xl'
-                
+
             elif os.name == 'posix':
                 dire = os.curdir + "/" + fileName[:len(fileName)-5]
                 if fileName.endswith('docx'):
@@ -824,7 +824,7 @@ def docx_deflater(fileName):
                 deflater.printdir()
                 deflater.extractall(dire)
                 deflater.close()
-                
+
                 # Check for malicious MACROs docx/pptx/xlsx
                 if macro_docx_scanner(dire, internal_ext) is True:
                     print("File Contains MALICIOUS Macros!!!!")
@@ -848,25 +848,25 @@ def docx_deflater(fileName):
     except:
         print("An error occurred during deflating")
     return False
-    
+
 def update_DB(databaseName, hashes, fileSize, bw_index):
     try:
         if bw_index == False:
             malicious_index = "No"
         else:
             malicious_index = "Yes"
-        
+
         md5 = hashes[0]  # PRIMARY KEY (successively dropped)
         sha1 = hashes[1] # PRIMARY KEY
-        
+
         connect = sqlite3.connect(databaseName)
         cursor = connect.cursor()
         tup = ( 'Null', md5, sha1, fileSize, malicious_index )
         cursor.execute('insert into BWList values(?,?,?,?,?)',tup)
         del tup
         connect.commit()
-        cursor.close()       
-        
+        cursor.close()
+
         return
     except sqlite3.Error, e:
         print("An Error Occurred:", e.args[0])
@@ -874,28 +874,28 @@ def update_DB(databaseName, hashes, fileSize, bw_index):
     except:
         print("Generic Error durig DB Update happened\n")
         return
-        
+
 def office2007_details(folder, internal_ext):
     # unimplemented
     return True
 
 def zip_archive(fileName):
-    
+
     try:
         if zipfile.is_zipfile(fileName) is True:
-                                    
+
             if os.name == 'nt':
                 temp_folder = os.curdir + "\\" + fileName[:len(fileName)-4]
             elif os.name == 'posix':
-                temp_folder = os.curdir + "/" + fileName[:len(fileName)-4]                
-                                        
+                temp_folder = os.curdir + "/" + fileName[:len(fileName)-4]
+
             if not os.path.exists(temp_folder):
                 os.mkdir(temp_folder)
                 deflater = zipfile.ZipFile(fileName)
                 deflater.printdir()
                 deflater.extractall(temp_folder)
                 deflater.close()
-                
+
                 if directory_scanner(temp_folder) is True:
                     print("Directory Scan Completed Please Look at DirScan.txt\n")
                     return True
@@ -905,14 +905,14 @@ def zip_archive(fileName):
             else:
                 print("Temp Dir Already Exists")
                 return False
-            
+
         else:
             print("Invalid or Corrupted Zip Archive")
             return False
     except:
         print("Generic Error Happened While Deflating Archive")
-    
+
     return True
-    
+
 if __name__ == "__main__":
     main()
