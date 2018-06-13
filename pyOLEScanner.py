@@ -474,72 +474,17 @@ def xor_decrypt_data(data, key):
     return ''.join(chr(ord(x) ^ ord(y)) for(x,y) in izip(data,cycle(chr(key))))
 
 def known_api_revealer(mappedOle):
-
     apiOffset = list()
+    targets = ['CreateFileA','GetProcAddress','LoadLibraryA','WinExec',
+        'GetSystemDirectory','WriteFile','ShellExecute',
+        'GetWindowsDirectory','UrlDownloadToFile','GetTempPath',
+        'IsBadReadPtr','IsBadWritePtr','CloseHandle','ReadFile',
+        'SetFilePointer','VirtualAlloc']
 
-    match = re.search(b'CreateFileA',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of CreateFileA at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'GetProcAddress',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of GetProcAddress at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'LoadLibraryA',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of LoadLibraryA at offset:{0}".format(match.start()))
-
-    match = re.search(b'WinExec',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of WinExec at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'GetSystemDirectory',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of GetSystemDirectoryA at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'WriteFile',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of WriteFile at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'ShellExecute',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of ShellExecute at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'GetWindowsDirectory',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of GetWindowsDirectory at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'UrlDownloadToFile',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'GetTempPath',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'IsBadReadPtr',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'IsBadWritePtr',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'CloseHandle',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'ReadFile',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'SetFilePointer',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'VirtualAlloc',mappedOle)
-    if match is not None:
-        apiOffset.append("Revealed presence of UrlDownloadToFile at offset:{0}".format(hex(match.start())))
+    for target in targets:
+        match = re.search(target, mappedOle)
+        if match is not None:
+            apiOffset.append("Revealed presence of {0} at offset:{1}".format(target, hex(match.start())))
 
     return apiOffset
 
