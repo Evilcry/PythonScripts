@@ -538,98 +538,30 @@ def xor_bruteforcer(mappedOle):
 def shellcode_scanner(mappedOle):
 
     shellcode_presence = list()
+    rule_and_targets = {
+        'FS[00]': [b'\x64\x8b\x64', b'\x64\xa1\x00'],
+        'FS[30h]': [b'\x64\xa1\x30\x00\x00', b'\x64\x8b\x1d\x30\x00',
+                    b'\x64\x8b\x0d\x30\x00', b'\x64\x8b\x15\x30\x00',
+                    b'\x64\x8b\x35\x30', b'\x64\x8b\x3d\x30'],
+        'Call Prolog': [b'\x55\x8b\xec\x83\xc4', b'\x55\x8b\xec\x81\xec',
+                        b'\x55\x8b\xec\xe9', b'\x55\x8b\xec\xe8'],
+        'Nop Slide': [b'\x90\x90\x90\x90'],
+        'Call Pop Signature': [
+            b'\xe8\x00\x00\x00\x00\x5d', b'\xe8\x00\x00\x00\x00\x5f',
+            b'\xe8\x00\x00\x00\x00\x5e', b'\xe8\x00\x00\x00\x00\x5a',
+            b'\xe8\x00\x00\x00\x00\x59', b'\xe8\x00\x00\x00\x00\x58',
+            b'\xd9\xee\xd9\x74\x24\xf4'
+        ],
+        'Fldz Signature': [b'\xd9\xee\xd9\x74\x24\xf4'],
+        'LODSB/STOSB ROL decryption':
+            [b'\xac\xd0\xc0\xaa', b'\xac\xd0\xc8\xaa'],
+    }
 
-    match = re.search(b'\x64\x8b\x64',mappedOle)
-    if match is not None:
-        shellcode_presence.append("FS:[00] Shellcode at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x64\xa1\x00',mappedOle)
-    if match is not None:
-        shellcode_presence.append("FS:[00] Shellcode at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x64\xa1\x30\x00\x00',mappedOle)
-    if match is not None:
-        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x64\x8b\x1d\x30\x00',mappedOle)
-    if match is not None:
-        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x64\x8b\x0d\x30\x00',mappedOle)
-    if match is not None:
-        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x64\x8b\x15\x30\x00',mappedOle)
-    if match is not None:
-        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x64\x8b\x35\x30',mappedOle)
-    if match is not None:
-        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x64\x8b\x3d\x30',mappedOle)
-    if match is not None:
-        shellcode_presence.append("FS:[30h] Shellcode at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x55\x8b\xec\x83\xc4',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Prolog at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x55\x8b\xec\x81\xec',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Prolog at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x55\x8b\xec\xe8',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Prolog at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x55\x8b\xec\xe9',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Prolog at offset:{0}".format(hex(match.start())))
-
-    match = re.search(b'\x90\x90\x90\x90',mappedOle)
-    if match is not None:
-        shellcode_presence.append("NOP Slide:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xd9\xee\xd9\x74\x24\xf4',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xe8\x00\x00\x00\x00\x58',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xe8\x00\x00\x00\x00\x59',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xe8\x00\x00\x00\x00\x5a',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xe8\x00\x00\x00\x00\x5e',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xe8\x00\x00\x00\x00\x5f',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xe8\x00\x00\x00\x00\x5d',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Call Pop Signature:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xd9\xee\xd9\x74\x24\xf4',mappedOle)
-    if match is not None:
-        shellcode_presence.append("Fldz Signature:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xac\xd0\xc0\xaa',mappedOle)
-    if match is not None:
-        shellcode_presence.append("LODSB/STOSB ROL decryption:{0}".format(hex(match.start())))
-
-    match = re.search(b'\xac\xd0\xc8\xaa',mappedOle)
-    if match is not None:
-        shellcode_presence.append("LODSB/STOSB ROR decryption:{0}".format(hex(match.start())))
+    for rule, targets in rule_and_targets.items():
+        for target in targets:
+            match = re.search(target, mappedOle)
+            if match is not None:
+                shellcode_presence.append("{0} Shellcode at offset:{1}".format(rule, hex(match.start())))
 
     match = re.search(b'\x66\xad\x66\x35',mappedOle)
     if match is not None:
